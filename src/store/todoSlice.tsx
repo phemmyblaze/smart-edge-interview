@@ -1,9 +1,9 @@
-import {createSlice, createAsyncThunk} from '@reduxjs/toolkit';
-
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit'
+import type { Task, TasksState, CreateTaskData, UpdateTaskData } from '../../types'
 const BaseUrl = "http://localhost:3500"
 
 
-export const fetchTasks = createAsyncThunk(
+export const fetchTasks = createAsyncThunk<Task[]>(
     'tasks/fetchTasks',
 
     async () => {
@@ -12,7 +12,7 @@ export const fetchTasks = createAsyncThunk(
     }
 )
 
-export const createTask = createAsyncThunk(
+export const createTask = createAsyncThunk<Task, CreateTaskData>(
     "tasks/createTask",
     async (taskData) => {
         const response = await fetch((`${BaseUrl}/todos`), {
@@ -27,7 +27,7 @@ export const createTask = createAsyncThunk(
 )
 
 
-export const updateTask = createAsyncThunk(
+export const updateTask = createAsyncThunk<Task, UpdateTaskData>(
     "tasks/updateTask",
     async ({id, updates}) => {
         const response = await fetch(`${BaseUrl}/todos/${id}`, {
@@ -41,7 +41,7 @@ export const updateTask = createAsyncThunk(
     }
 )
 
-export const deleteTask = createAsyncThunk( 
+export const deleteTask = createAsyncThunk<string, string>( 
     "tasks/deleteTask",
     async (id) => {
         await fetch(`${BaseUrl}/todos/${id}`, {
@@ -51,35 +51,35 @@ export const deleteTask = createAsyncThunk(
     }
 )
 
-const initialState = {
-    items: [],
-    state: "idle",
-    error: null,
-    filter: "all"
+const initialState: TasksState = {
+  items: [],
+  status: 'idle',
+  error: null,
+  filter: 'all',
 }
 
 const taskSlice = createSlice({
     name: "tasks",
     initialState,
     reducers: {
-        taskAdded: (state, action) => {
+        taskAdded: (state, action: PayloadAction<Task>) => {
             state.items.push(action.payload)
         }, 
-        taskUpdated: (state, action) => {
+        taskUpdated: (state, action: PayloadAction<Task>) => {
             const index = state.items.findIndex(task => task.id === action.payload.id);
             if (index !== -1) {
                 state.items[index] = {...state.items[index], ...action.payload}
             }
         },
-        taskDelete: (state, action) => {
+        taskDelete: (state, action: PayloadAction<string>) => {
             state.items = state.items.filter(task => task.id !== action.payload)
         }, 
-        setFilter: (state, action) => {
+        setFilter: (state, action: PayloadAction<'all' | 'completed' | 'pending'>) => {
             state.filter = action.payload;
         },
 
 
-        taskUpdateRealTime: (state, action) => {
+        taskUpdateRealTime: (state, action: PayloadAction<Task>) => {
             const index = state.items.findIndex(task => task.id = action.payload.id);
             if(index !== -1) {
                 state.items[index] = action.payload
@@ -87,7 +87,7 @@ const taskSlice = createSlice({
                 state.items.push(action.payload)
             }
         },
-        taskDeleteRealTime: (state, action) => {
+        taskDeleteRealTime: (state, action: PayloadAction<string>) => {
             state.items = state.items.filter(task => task.id !== action.payload)
         },
     },
@@ -102,7 +102,7 @@ const taskSlice = createSlice({
             })
             .addCase(fetchTasks.rejected, (state, action) => {
                 state.status = "failed"
-                state.error = action.error.message
+                state.error = action.error.message || 'Failed to fetch tasks'
             })
 
 
@@ -110,11 +110,11 @@ const taskSlice = createSlice({
                 state.status = "loading"
             })
             .addCase(createTask.fulfilled, (state, action) => {
-                state.items.push = (action.payload)
+               state.items.push(action.payload)
             })
             .addCase(createTask.rejected, (state, action) => {
                 state.status = "failed"
-                state.error = action.error.message
+                state.error = action.error.message || 'Failed to create task'
             })
 
 
@@ -129,8 +129,11 @@ const taskSlice = createSlice({
                 }
             })
 
-            .addCase(deleteTask.pending, (state) => {
+            .addCase(deleteTask.fulfilled, (state, action) => {
                 state.items = state.items.filter(task => task.id !== action.payload)
+            })
+            .addCase(deleteTask.rejected, (state, action) => {
+                state.error = action.error.message || 'Failed to delete task'
             })
 
 
@@ -148,6 +151,23 @@ export const  {
     taskDeleteRealTime
 } = taskSlice.actions;
 
-export const selectAllTasks = (state) => state.tasks.items
-export const selectTaskStatus = (state) => state.task.status
-export const selectTaskError =  (state) => state.task.error
+export const selectAllTasks = (state: { tasks: TasksState }) => state.tasks.items
+export const selectTasksStatus = (state: { tasks: TasksState }) => state.tasks.status
+export const selectTasksError = (state: { tasks: TasksState }) => state.tasks.error
+export const selectTasksFilter = (state: { tasks: TasksState }) => state.tasks.filter
+
+export const selectFilteredTasks = (state: { tasks: TasksState }) => {
+  const allTasks = selectAllTasks(state)
+  const filter = selectTasksFilter(state)
+  
+  switch (filter) {
+    case 'completed':
+      return allTasks.filter(task => task.completed)
+    case 'pending':
+      return allTasks.filter(task => !task.completed)
+    default:
+      return allTasks
+  }
+}
+
+export default taskSlice.reducer

@@ -1,12 +1,14 @@
 // lib/store.ts
 import { configureStore } from '@reduxjs/toolkit'
 import { apiSlice } from '@/api/apiSlice'
+import taskReducer from "./todoSlice"
 
 export const store = configureStore({
   reducer: {
+    tasks: taskReducer,
     [apiSlice.reducerPath]: apiSlice.reducer,
     // Add more reducers here if needed
-    
+
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(apiSlice.middleware),
